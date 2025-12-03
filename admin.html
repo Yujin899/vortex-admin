@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vortex Study Duels - Admin</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    
+    <script>
+        // *** يرجى استبدال هذه القيم بقيم مشروعك الحقيقية ***
+        const firebaseConfig = {
+    apiKey: "AIzaSyDwIAoOtWZAd0g9mA358IbOv95ng1nMQJI",
+    authDomain: "vortex-da44a.firebaseapp.com",
+    projectId: "vortex-da44a",
+    storageBucket: "vortex-da44a.firebasestorage.app",
+    messagingSenderId: "343421587738",
+    appId: "1:343421587738:web:0d875ff0f323c963399ca3"
+  };
+
+        // تهيئة التطبيق
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+    </script>
+
+    <style>
+        body { background-color: #151525; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: #2E2E2E; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); width: 800px; max-width: 95%; min-height: 500px; }
+        h2 { color: #8A2BE2; text-align: center; margin-bottom: 30px; }
+        h3 { color: #A0522D; border-bottom: 2px solid #3C3C3C; padding-bottom: 5px; margin-top: 30px; }
+        
+        input[type="email"], input[type="password"], input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; border: none; border-radius: 5px; box-sizing: border-box; color: black; }
+        
+        button { padding: 12px 20px; background-color: #8A2BE2; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; transition: background-color 0.2s; }
+        button:hover { background-color: #9932CC; }
+        .small-btn { padding: 8px 12px; font-size: 14px; margin-left: 5px; }
+        .danger-btn { background-color: #D9534F; }
+        .danger-btn:hover { background-color: #C9302C; }
+        .success-btn { background-color: #5CB85C; }
+        
+        #message { color: red; text-align: center; margin-top: 15px; }
+        .hidden { display: none; }
+
+        /* قائمة العناصر */
+        .list-item { background-color: #3C3C3C; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .list-item-title { font-weight: bold; }
+        #json-file-display { padding: 10px; border: 1px dashed #6C757D; border-radius: 5px; margin-top: 10px; text-align: center; cursor: pointer; }
+        .question-card { background-color: #4C4C4C; margin-bottom: 15px; padding: 15px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-container" class="container">
+        <h2>Vortex Admin Login</h2>
+        <input type="email" id="email" placeholder="Admin Email" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button onclick="login()">Log In</button>
+        <p id="message"></p>
+    </div>
+
+    <div id="dashboard-container" class="container hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #4C4C4C; padding-bottom: 10px;">
+            <h2>Admin Dashboard</h2>
+            <div>
+                <button class="small-btn success-btn" onclick="showView('users')">Manage Users</button>
+                <button onclick="logout()" class="small-btn danger-btn">Log Out</button>
+            </div>
+        </div>
+
+        <div id="content-views" style="margin-top: 20px;">
+            
+            <div id="subjects-view" style="display: none;">
+                <h3>Subject Management</h3>
+                <button onclick="showAddSubjectForm()">+ Add New Subject</button>
+                <div id="add-subject-form" class="hidden" style="padding: 15px; background-color: #4C4C4C; border-radius: 5px; margin-top: 10px;">
+                    <h4>Add Subject</h4>
+                    <input type="text" id="new-subject-title" placeholder="Subject Title (e.g., Pharmacology)" required>
+                    <button onclick="addSubject()">Save Subject</button>
+                    <button onclick="showAddSubjectForm()" style="background-color: #6C757D;">Cancel</button>
+                    <p id="add-subject-message" style="margin-top: 10px;"></p>
+                </div>
+                <div id="subjects-list" style="margin-top: 20px;"></div>
+            </div>
+
+            <div id="quizzes-view" style="display: none;">
+                <button onclick="showView('subjects')" class="small-btn" style="margin-bottom: 20px;">&larr; Back to Subjects</button>
+                <h3 id="quizzes-subject-title">Quizzes for [Subject Title]</h3>
+                <button onclick="showAddQuizForm()">+ Add New Quiz</button>
+                <div id="add-quiz-form" class="hidden" style="padding: 15px; background-color: #4C4C4C; border-radius: 5px; margin-top: 10px;">
+                    <h4>Add Quiz</h4>
+                    <input type="text" id="new-quiz-title" placeholder="Quiz Title (e.g., Dosage Forms)" required>
+                    <button onclick="addQuiz()">Save Quiz</button>
+                    <button onclick="showAddQuizForm()" style="background-color: #6C757D;">Cancel</button>
+                    <p id="add-quiz-message" style="margin-top: 10px;"></p>
+                </div>
+                <div id="quizzes-list" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div id="questions-view" style="display: none;">
+                <button onclick="showView('quizzes')" class="small-btn" style="margin-bottom: 20px;">&larr; Back to Quizzes</button>
+                <h3 id="questions-quiz-title">Questions for [Quiz Title]</h3>
+                <div id="questions-list" style="margin-top: 20px;"></div>
+                
+                <hr style="margin-top: 30px; border-color: #4C4C4C;">
+                <h4>Upload/Overwrite Questions (JSON File)</h4>
+                
+                <input type="file" id="json-file-input" accept=".json" class="hidden" onchange="handleFileSelection(event)">
+                
+                <div id="json-file-display" onclick="document.getElementById('json-file-input').click()">
+                    Click to select JSON file
+                </div>
+                
+                <button onclick="uploadQuestionsJSON()" class="danger-btn">OVERWRITE ALL QUESTIONS</button>
+                <p id="upload-message" style="margin-top: 10px;"></p>
+            </div>
+
+            <div id="users-view" style="display: none;">
+                <button onclick="showView('subjects')" class="small-btn" style="margin-bottom: 20px;">&larr; Back to Subject Management</button>
+                <h3>User Management</h3>
+                <div id="users-list" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginContainer = document.getElementById('login-container');
+        const dashboardContainer = document.getElementById('dashboard-container');
+        const messageElement = document.getElementById('message');
+        
+        // --- View Containers ---
+        const views = {
+            subjects: document.getElementById('subjects-view'),
+            quizzes: document.getElementById('quizzes-view'),
+            questions: document.getElementById('questions-view'),
+            users: document.getElementById('users-view')
+        };
+
+        // --- Current State ---
+        let currentSubjectId = null;
+        let currentQuizId = null;
+        let selectedFileContent = null; 
+
+        // --- View Management ---
+        function showView(viewName, subjectId = null, quizId = null, title = null) {
+            Object.values(views).forEach(v => v.style.display = 'none');
+            
+            if (viewName === 'subjects') {
+                fetchSubjects();
+            } else if (viewName === 'quizzes' && subjectId) {
+                currentSubjectId = subjectId;
+                document.getElementById('quizzes-subject-title').innerText = `Quizzes for ${title}`;
+                fetchQuizzes(subjectId);
+            } else if (viewName === 'questions' && quizId) {
+                currentQuizId = quizId;
+                document.getElementById('questions-quiz-title').innerText = `Questions for ${title}`;
+                fetchQuestions(subjectId, quizId);
+                // إعادة تعيين واجهة رفع الملفات
+                document.getElementById('json-file-display').innerText = 'Click to select JSON file';
+                document.getElementById('upload-message').innerText = '';
+                document.getElementById('json-file-display').style.color = 'white';
+                selectedFileContent = null;
+            } else if (viewName === 'users') {
+                fetchUsers();
+            }
+            views[viewName].style.display = 'block';
+        }
+
+
+        // ==========================================================
+        //         FUNCTIONS: AUTHENTICATION AND NAVIGATION
+        // ==========================================================
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const uid = userCredential.user.uid;
+
+                const doc = await db.collection('users').doc(uid).get();
+
+                if (doc.exists && doc.data().isAdmin === true) {
+                    loginContainer.classList.add('hidden');
+                    dashboardContainer.classList.remove('hidden');
+                    messageElement.innerText = '';
+                    showView('subjects');
+                } else {
+                    auth.signOut(); 
+                    messageElement.innerText = 'Access Denied: You are not an administrator.';
+                }
+
+            } catch (error) {
+                messageElement.innerText = 'Login Failed: ' + error.message;
+            }
+        }
+
+        function logout() {
+            auth.signOut();
+            currentSubjectId = null;
+            currentQuizId = null;
+        }
+        
+        // --- Auth State Observer ---
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const doc = await db.collection('users').doc(user.uid).get();
+                    if (doc.exists && doc.data().isAdmin === true) {
+                        loginContainer.classList.add('hidden');
+                        dashboardContainer.classList.remove('hidden');
+                        showView('subjects');
+                    } else {
+                        auth.signOut();
+                    }
+                } catch(e) {
+                     auth.signOut();
+                }
+            } else {
+                loginContainer.classList.remove('hidden');
+                dashboardContainer.classList.add('hidden');
+            }
+        });
+
+
+        // ==========================================================
+        //            FUNCTIONS: FILE PICKING (WEB NATIVE)
+        // ==========================================================
+        
+        function handleFileSelection(event) {
+            const file = event.target.files[0];
+            const fileDisplay = document.getElementById('json-file-display');
+            const uploadMsg = document.getElementById('upload-message');
+
+            if (!file) {
+                fileDisplay.innerText = 'Click to select JSON file';
+                fileDisplay.style.color = 'white';
+                selectedFileContent = null;
+                return;
+            }
+
+            if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+                fileDisplay.innerText = 'Error: Only JSON files are allowed!';
+                fileDisplay.style.color = 'red';
+                selectedFileContent = null;
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const rawContent = e.target.result;
+                try {
+                    // ** FIX 1: إزالة BOM وأي مسافات بيضاء غير مرئية قبل التحليل **
+                    const cleanedContent = rawContent.trim().replace(/^\uFEFF/, '');
+                    
+                    JSON.parse(cleanedContent); // Test parsing immediately
+                    
+                    selectedFileContent = cleanedContent; // حفظ المحتوى النظيف
+                    
+                    fileDisplay.innerText = `File selected: ${file.name}`;
+                    fileDisplay.style.color = 'lightgreen';
+                    uploadMsg.innerText = 'File is ready for upload.';
+                    uploadMsg.style.color = 'white';
+                } catch (error) {
+                    fileDisplay.innerText = `Error: Invalid JSON structure or characters!`;
+                    fileDisplay.style.color = 'red';
+                    uploadMsg.innerText = 'Parsing failed. Check file content.';
+                    uploadMsg.style.color = 'red';
+                    selectedFileContent = null;
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================================
+        //         FUNCTIONS: SUBJECT MANAGEMENT (CRUD)
+        // ==========================================================
+
+        function renderSubjects(subjectDocs) {
+            const list = document.getElementById('subjects-list');
+            list.innerHTML = '';
+            
+            if (subjectDocs.length === 0) {
+                 list.innerHTML = '<div style="color: #6C757D;">No subjects found.</div>';
+                 return;
+            }
+
+            subjectDocs.forEach(doc => {
+                const subject = doc.data();
+                const subjectId = doc.id;
+                
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.innerHTML = `
+                    <span class="list-item-title">${subject.title || 'Untitled Subject'}</span>
+                    <div>
+                        <button class="small-btn" onclick="showEditSubjectDialog('${subjectId}', '${subject.title}')">Edit</button>
+                        <button class="small-btn action-button" onclick="showView('quizzes', '${subjectId}', null, '${subject.title}')">Manage Quizzes</button>
+                        <button class="small-btn danger-btn" onclick="deleteSubject('${subjectId}', '${subject.title}')">Delete</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function fetchSubjects() {
+            db.collection('subjects').orderBy('title').onSnapshot(snapshot => {
+                renderSubjects(snapshot.docs);
+            }, error => {
+                console.error("Error fetching subjects:", error);
+                alert('Error loading subjects: ' + error.message);
+            });
+        }
+        
+        function showAddSubjectForm() {
+            const form = document.getElementById('add-subject-form');
+            form.classList.toggle('hidden');
+            document.getElementById('new-subject-title').value = '';
+            document.getElementById('add-subject-message').innerText = '';
+        }
+
+        async function addSubject() {
+            const title = document.getElementById('new-subject-title').value.trim();
+            const msg = document.getElementById('add-subject-message');
+
+            if (title === "") {
+                msg.innerText = 'Please enter a title.';
+                return;
+            }
+
+            try {
+                await db.collection('subjects').add({
+                    title: title,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                msg.innerText = `Subject "${title}" added successfully!`;
+                msg.style.color = 'lightgreen';
+                document.getElementById('new-subject-title').value = '';
+                setTimeout(() => showAddSubjectForm(), 1500); 
+
+            } catch (error) {
+                msg.innerText = 'Error adding subject: ' + error.message;
+                msg.style.color = 'red';
+            }
+        }
+        
+        function showEditSubjectDialog(subjectId, currentTitle) {
+            const newTitle = prompt(`Editing subject ID: ${subjectId}\nEnter new title:`, currentTitle);
+            if (newTitle && newTitle.trim() !== currentTitle) {
+                db.collection('subjects').doc(subjectId).update({title: newTitle.trim()})
+                    .then(() => alert('Subject updated successfully!'))
+                    .catch(e => alert('Error updating subject: ' + e.message));
+            }
+        }
+
+        function deleteSubject(subjectId, subjectTitle) {
+            if (confirm(`Are you sure you want to delete the subject: ${subjectTitle}? This will delete ALL quizzes and questions under it.`)) {
+                db.collection('subjects').doc(subjectId).delete()
+                    .then(() => alert(`Subject "${subjectTitle}" deleted.`))
+                    .catch((error) => alert('Error deleting subject: ' + error.message));
+            }
+        }
+
+        // ==========================================================
+        //            FUNCTIONS: QUIZ MANAGEMENT (CRUD)
+        // ==========================================================
+
+        function renderQuizzes(quizDocs) {
+            const list = document.getElementById('quizzes-list');
+            list.innerHTML = '';
+            
+            if (quizDocs.length === 0) {
+                 list.innerHTML = '<div style="color: #6C757D;">No quizzes found. Add a new one!</div>';
+                 return;
+            }
+
+            quizDocs.forEach(doc => {
+                const quiz = doc.data();
+                const quizId = doc.id;
+                
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.innerHTML = `
+                    <span class="list-item-title">${quiz.title || 'Untitled Quiz'} (${quiz.question_count || 0} Qs)</span>
+                    <div>
+                        <button class="small-btn" onclick="showEditQuizDialog('${quizId}', '${quiz.title}')">Edit</button>
+                        <button class="small-btn action-button" onclick="showView('questions', currentSubjectId, '${quizId}', '${quiz.title}')">Manage Questions</button>
+                        <button class="small-btn danger-btn" onclick="deleteQuiz('${quizId}', '${quiz.title}')">Delete</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        function fetchQuizzes(subjectId) {
+             db.collection('subjects').doc(subjectId).collection('quizzes').orderBy('title').onSnapshot(snapshot => {
+                renderQuizzes(snapshot.docs);
+            }, error => {
+                console.error("Error fetching quizzes:", error);
+                alert('Error loading quizzes: ' + error.message);
+            });
+        }
+        
+        function showAddQuizForm() {
+            const form = document.getElementById('add-quiz-form');
+            form.classList.toggle('hidden');
+            document.getElementById('new-quiz-title').value = '';
+            document.getElementById('add-quiz-message').innerText = '';
+        }
+
+        async function addQuiz() {
+            const title = document.getElementById('new-quiz-title').value.trim();
+            const msg = document.getElementById('add-quiz-message');
+
+            if (title === "") {
+                msg.innerText = 'Please enter a title.';
+                return;
+            }
+
+            try {
+                await db.collection('subjects').doc(currentSubjectId).collection('quizzes').add({
+                    title: title,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    questions: [],
+                    question_count: 0
+                });
+                msg.innerText = `Quiz "${title}" added successfully!`;
+                msg.style.color = 'lightgreen';
+                document.getElementById('new-quiz-title').value = '';
+                setTimeout(() => showAddQuizForm(), 1500); 
+
+            } catch (error) {
+                msg.innerText = 'Error adding quiz: ' + error.message;
+                msg.style.color = 'red';
+            }
+        }
+
+        function showEditQuizDialog(quizId, currentTitle) {
+            const newTitle = prompt(`Editing quiz ID: ${quizId}\nEnter new title:`, currentTitle);
+            if (newTitle && newTitle.trim() !== currentTitle) {
+                db.collection('subjects').doc(currentSubjectId).collection('quizzes').doc(quizId).update({title: newTitle.trim()})
+                    .then(() => alert('Quiz title updated successfully!'))
+                    .catch(e => alert('Error updating quiz: ' + e.message));
+            }
+        }
+        
+        function deleteQuiz(quizId, quizTitle) {
+            if (confirm(`Are you sure you want to delete the quiz: ${quizTitle}?`)) {
+                db.collection('subjects').doc(currentSubjectId).collection('quizzes').doc(quizId).delete()
+                    .then(() => alert(`Quiz "${quizTitle}" deleted.`))
+                    .catch((error) => alert('Error deleting quiz: ' + error.message));
+            }
+        }
+        
+        // ==========================================================
+        //          FUNCTIONS: QUESTION MANAGEMENT (JSON Upload)
+        // ==========================================================
+
+        function renderQuestions(questions) {
+            const list = document.getElementById('questions-list');
+            list.innerHTML = '';
+
+            if (questions.length === 0) {
+                 list.innerHTML = '<div class="question-card" style="color: red;">No questions found. Please upload a JSON file.</div>';
+                 return;
+            }
+            
+            questions.forEach((q, index) => {
+                const isCorrectOption = q.options[q.correctAnswer];
+                
+                const div = document.createElement('div');
+                div.className = 'question-card';
+                div.innerHTML = `
+                    <span style="font-size: 1.1em;">Q${index + 1}: ${q.question}</span>
+                    <p style="margin: 5px 0 10px 0; font-size: 0.9em; color: lightgreen;">Correct: ${isCorrectOption}</p>
+                    <p style="margin: 0; font-size: 0.8em; color: white;">Options: ${q.options.join(' | ')}</p>
+                    <div style="margin-top: 10px;">
+                        <button class="small-btn" onclick="alert('Editing Q${index + 1} not yet implemented.')">Edit Question</button>
+                        <button class="small-btn danger-btn" onclick="alert('Deleting Q${index + 1} not yet implemented.')">Delete Question</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        function fetchQuestions(subjectId, quizId) {
+             db.collection('subjects').doc(subjectId).collection('quizzes').doc(quizId).onSnapshot(doc => {
+                const quiz = doc.data();
+                if (quiz && quiz.questions) {
+                    renderQuestions(quiz.questions);
+                } else {
+                    renderQuestions([]);
+                }
+            }, error => {
+                console.error("Error fetching questions:", error);
+                alert('Error loading questions: ' + error.message);
+            });
+        }
+
+        async function uploadQuestionsJSON() {
+            const uploadMsg = document.getElementById('upload-message');
+
+            if (selectedFileContent === null) {
+                uploadMsg.innerText = 'Please select a JSON file first.';
+                uploadMsg.style.color = 'red';
+                return;
+            }
+
+            try {
+                // Parse the cleaned JSON content
+                const data = JSON.parse(selectedFileContent);
+                
+                if (data.questions && Array.isArray(data.questions)) {
+                    // Update Firestore document with the new questions array
+                    await db.collection('subjects')
+                        .doc(currentSubjectId)
+                        .collection('quizzes')
+                        .doc(currentQuizId)
+                        .update({
+                            questions: data.questions,
+                            question_count: data.questions.length,
+                            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                    uploadMsg.innerText = `Successfully updated ${data.questions.length} questions!`;
+                    uploadMsg.style.color = 'lightgreen';
+                    selectedFileContent = null; // Clear content after successful upload
+                    document.getElementById('json-file-display').innerText = 'Click to select JSON file';
+                    document.getElementById('json-file-display').style.color = 'white'; // Reset color
+                    
+                } else {
+                    throw new Error("JSON must contain a root 'questions' array.");
+                }
+            } catch (e) {
+                uploadMsg.innerText = `JSON Processing Error: ${e.message}`;
+                uploadMsg.style.color = 'red';
+                console.error(e);
+            }
+        }
+        
+        // ==========================================================
+        //            FUNCTIONS: USER MANAGEMENT
+        // ==========================================================
+        
+        function renderUsers(userDocs) {
+            const list = document.getElementById('users-list');
+            list.innerHTML = '';
+            
+            userDocs.forEach(doc => {
+                const user = doc.data();
+                const userId = doc.id;
+                
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.style.backgroundColor = user.isAdmin ? '#503030' : '#3C3C3C'; // Highlight Admins
+                div.innerHTML = `
+                    <span class="list-item-title">${user.username || 'N/A'} (XP: ${user.xp || 0})</span>
+                    <p style="margin: 0; font-size: 0.9em; color: ${user.isAdmin ? 'yellow' : 'white'};">${user.email || 'Anonymous'}</p>
+                    <div>
+                        <button class="small-btn success-btn" onclick="toggleAdmin('${userId}', ${user.isAdmin})">${user.isAdmin ? 'Revoke Admin' : 'Make Admin'}</button>
+                        <button class="small-btn danger-btn" onclick="deleteUser('${userId}', '${user.username}')">Delete Profile</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        function fetchUsers() {
+            db.collection('users').orderBy('xp', 'desc').onSnapshot(snapshot => {
+                renderUsers(snapshot.docs);
+            }, error => {
+                console.error("Error fetching users:", error);
+                alert('Error loading users: ' + error.message);
+            });
+        }
+
+        async function toggleAdmin(userId, currentStatus) {
+             if (confirm(`Are you sure you want to change Admin status for user ${userId}?`)) {
+                await db.collection('users').doc(userId).update({
+                    isAdmin: !currentStatus
+                });
+                alert(`User status changed to Admin: ${!currentStatus}`);
+            }
+        }
+        
+        async function deleteUser(userId, username) {
+             if (confirm(`WARNING: This will ONLY delete the profile document for ${username}. You must manually delete the Firebase Auth account. Proceed?`)) {
+                await db.collection('users').doc(userId).delete();
+                alert(`Profile for ${username} deleted from Firestore.`);
+            }
+        }
+        
+        // --- Initial View ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Setup File Picker Listener
+            document.getElementById('json-file-input').addEventListener('change', handleFileSelection);
+            
+            if (auth.currentUser) {
+                auth.currentUser.getIdTokenResult(true).then(token => {
+                    if (token.claims.isAdmin) {
+                        showView('subjects');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
